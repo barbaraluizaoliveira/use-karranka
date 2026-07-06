@@ -3,17 +3,8 @@ import styled from 'styled-components';
 import logoImg from './assets/karranka-assinatura-preta-e-vermelha.png'; 
 import { ProductCard, type Product } from './components/ProductCard';
 import { api } from './services/api';
+import { PageWithHeader } from './components/PageWithHeader'; 
 
-const ScrollContainer = styled.main`
-  height: 100vh;
-  overflow-y: scroll;
-  scroll-snap-type: y mandatory; 
-  scroll-behavior: smooth;
-  scrollbar-width: none; 
-  &::-webkit-scrollbar {
-    display: none;
-  }
-`;
 
 const FullScreenSection = styled.section`
   height: 100vh;
@@ -159,50 +150,50 @@ export function App() {
   }, []);
 
   return (
-    <ScrollContainer>
-      
-      <HomeSection>
-        <BrandContainer>
-          <BrandName>Karranka</BrandName>
-          <Logo src={logoImg} alt="Logo Karranka" />
-        </BrandContainer>
+    <PageWithHeader>
+        
+        <HomeSection>
+          <BrandContainer>
+            <BrandName>Karranka</BrandName>
+            <Logo src={logoImg} alt="Logo Karranka" />
+          </BrandContainer>
 
-        <ScrollIndicator>
-          Deslize para ver os produtos
-          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-          </svg>
-        </ScrollIndicator>
-      </HomeSection>
+          <ScrollIndicator>
+            Deslize para ver os produtos
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </ScrollIndicator>
+        </HomeSection>
 
-      <ProductsSection>
-        <SectionTitle>Nossos Produtos</SectionTitle>
-        <ProductsGrid>
-          {loading ? (
-            <LoadingText>Carregando produtos reais...</LoadingText>
-          ) : products.length === 0 ? (
-            <LoadingText>Nenhum produto encontrado na vitrine.</LoadingText>
-          ) : (
-            products.map((produto) => {
-              const nomeImagem = produto.image_url || produto.imageUrl || (produto.id === 1 ? 'bone-karranka.png' : 'camisa-branca-karranka-cinza-vermelho.png');
+        <ProductsSection>
+          <SectionTitle>Nossos Produtos</SectionTitle>
+          <ProductsGrid>
+            {loading ? (
+              <LoadingText>Carregando produtos reais...</LoadingText>
+            ) : products.length === 0 ? (
+              <LoadingText>Nenhum produto encontrado na vitrine.</LoadingText>
+            ) : (
+              products.map((produto) => {
+                const nomeImagem = produto.image_url || produto.imageUrl || (produto.id === 1 ? 'bone-karranka.png' : 'camisa-branca-karranka-cinza-vermelho.png');
 
-              const produtoFormatado: Product = {
-                id: String(produto.id),
-                name: produto.name,
-                price: Number(produto.price),
-                originalPrice: produto.old_price || produto.originalPrice ? Number(produto.old_price || produto.originalPrice) : undefined,
-                discount: produto.discount_percent ? produto.discount_percent + '% OFF' : undefined,
-                imageUrl: '/' + nomeImagem
-              };
+                const produtoFormatado: Product = {
+                  id: String(produto.id),
+                  name: produto.name,
+                  price: Number(produto.price),
+                  originalPrice: produto.old_price || produto.originalPrice ? Number(produto.old_price || produto.originalPrice) : undefined,
+                  discount: produto.discount_percent ? produto.discount_percent + '% OFF' : undefined,
+                  imageUrl: '/' + nomeImagem
+                };
 
-              return (
-                <ProductCard key={produtoFormatado.id} product={produtoFormatado} />
-              );
-            })
-          )}
-        </ProductsGrid>
-      </ProductsSection>
+                return (
+                  <ProductCard key={produtoFormatado.id} product={produtoFormatado} />
+                );
+              })
+            )}
+          </ProductsGrid>
+        </ProductsSection>
 
-    </ScrollContainer>
+    </PageWithHeader>
   );
 }

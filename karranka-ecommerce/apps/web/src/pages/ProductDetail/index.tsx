@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { api } from '../../services/api';
+import { useCart } from '../../context/CartContext';
 
 const Container = styled.main`
   min-height: 100vh;
@@ -183,6 +184,9 @@ const StatusText = styled.p`
 `;
 
 export function ProductDetail() {
+  // CHAMADA DO HOOK CORRETA: Sempre dentro do componente!
+  const { addToCart } = useCart();
+  
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [product, setProduct] = useState<any>(null);
@@ -230,13 +234,18 @@ export function ProductDetail() {
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
-    console.log('Adicionar ao carrinho:', {
+    
+    addToCart({
       productId: product.id,
       name: product.name,
-      price: product.price,
+      price: Number(product.price),
       imageUrl: urlFinalImagem,
-      variant: selectedVariant
+      quantity: 1,
+      selectedSize: selectedVariant.size?.sizeName || 'Único',
+      selectedColor: selectedVariant.color?.colorHex || '#000000',
+      variantId: selectedVariant.id
     });
+    
     navigate('/cart');
   };
 
@@ -259,11 +268,8 @@ export function ProductDetail() {
           
           <PriceContainer>
             <CurrentPrice>
-              {typeof product.price === 'number' 
-                ? product.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                : Number(product.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-              }
-            </CurrentPrice>
+              {Number(product.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+             </CurrentPrice>
             {product.oldPrice && (
               <OldPrice>
                 {Number(product.oldPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
