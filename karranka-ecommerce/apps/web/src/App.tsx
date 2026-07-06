@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import logoImg from './assets/karranka-assinatura-home.png'; 
+import logoImg from './assets/karranka-assinatura-preta-e-vermelha.png'; 
 import { ProductCard, type Product } from './components/ProductCard';
 import { api } from './services/api';
 
