@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  email     String   @unique @db.VarChar(100)
+  password  String   @db.VarChar(255)
+  role      Role     @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  carts     Cart[]
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Collection {
+  id       Int       @id @default(autoincrement())
+  name     String    @db.VarChar(100)
+  active   Boolean   @default(true)
+  products Product[]
+
+  @@map("collections")
+}
+
+model Product {
+  id              Int              @id @default(autoincrement())
+  collectionId    Int              @map("collection_id")
+  name            String           @db.VarChar(150)
+  description     String?
+  category        String           @default("CLOTHING") @db.VarChar(50)
+  price           Decimal          @db.Decimal(10, 2)
+  oldPrice        Decimal?         @map("old_price") @db.Decimal(10, 2)
+  discountPercent Int?             @map("discount_percent")
+  imageUrl        String?          @map("image_url") @db.VarChar(255)
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  colors          ProductColor[]
+  sizes           ProductSize[]
+  variants        ProductVariant[]
+  collection      Collection       @relation(fields: [collectionId], references: [id])
+
+  @@map("products")
+}
+
+model ProductVariant {
+  id            Int          @id @default(autoincrement())
+  productId     Int          @map("product_id")
+  colorId       Int          @map("color_id")
+  sizeId        Int          @map("size_id")
+  sku           String       @unique @db.VarChar(50)
+  stockQuantity Int          @default(0) @map("stock_quantity")
+  color         ProductColor @relation(fields: [colorId], references: [id])
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size          ProductSize  @relation(fields: [sizeId], references: [id])
+
+  @@map("product_variants")
+}
+
+model ProductColor {
+  id        Int              @id @default(autoincrement())
+  productId Int              @map("product_id")
+  colorHex  String           @map("color_hex") @db.VarChar(7)
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variants  ProductVariant[]
+
+  @@map("product_colors")
+}
+
+model ProductSize {
+  id        Int              @id @default(autoincrement())
+  productId Int              @map("product_id")
+  sizeName  String           @map("size_name") @db.VarChar(10)
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variants  ProductVariant[]
+
+  @@map("product_sizes")
+}
+
+model Cart {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @map("user_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+  user      User       @relation(fields: [userId], references: [id])
+  items     CartItem[]
+
+  @@map("cart")
+}
+
+model CartItem {
+  id            Int     @id @default(autoincrement())
+  cartId        Int     @map("cart_id")
+  productId     Int     @map("product_id")
+  quantity      Int     @default(1)
+  selectedSize  String? @map("selected_size") @db.VarChar(10)
+  selectedColor String? @map("selected_color") @db.VarChar(7)
+  cart          Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product       Product @relation(fields: [productId], references: [id])
+
+  @@map("cart_items")
+}
+
+model Order {
+  id          Int         @id @default(autoincrement())
+  userId      Int         @map("user_id")
+  totalAmount Decimal     @map("total_amount") @db.Decimal(10, 2)
+  status      String      @default("PENDING") @db.VarChar(20)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  items       OrderItem[]
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id              Int     @id @default(autoincrement())
+  orderId         Int     @map("order_id")
+  productId       Int     @map("product_id")
+  quantity        Int
+  selectedSize    String? @map("selected_size") @db.VarChar(10)
+  selectedColor   String? @map("selected_color") @db.VarChar(7)
+  priceAtPurchase Decimal @map("price_at_purchase") @db.Decimal(10, 2)
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model CarouselBanner {
+  id              Int     @id @default(autoincrement())
+  title           String  @db.VarChar(150)
+  imageDesktopUrl String  @map("image_desktop_url") @db.VarChar(255)
+  imageMobileUrl  String? @map("image_mobile_url") @db.VarChar(255)
+  targetUrl       String  @map("target_url") @db.VarChar(255)
+  isActive        Boolean @default(true) @map("is_active")
+  displayOrder    Int     @default(0) @map("display_order")
+
+  @@map("carousel_banners")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
