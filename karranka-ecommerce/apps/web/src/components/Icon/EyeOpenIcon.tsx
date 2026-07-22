@@ -1,6 +1,6 @@
 import { IconWrapper } from './IconWrapper';
 // O "?react" no final avisa o Vite para transformar o SVG em um componente React
-import EyeOpenSvg from '../../assets/icons/eye-open.svg?react';
+import EyeOpenSvg from '../../assets/icons/eye-open.svg';
 
 interface IconProps {
   size?: number;

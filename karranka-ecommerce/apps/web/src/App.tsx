@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import logoImg from './assets/karranka-assinatura-preta-e-vermelha.png'; 
 import { ProductCard, type Product } from './components/ProductCard';
 import { PageWithHeader } from './components/PageWithHeader'; 
 import { HomeCarousel, type Banner } from './components/HomeCarousel';

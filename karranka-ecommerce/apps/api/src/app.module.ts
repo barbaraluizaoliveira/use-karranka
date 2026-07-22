@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { PrismaModule } from '../../../packages/database/src/prisma/prisma.module';
+import { PrismaModule } from '@karranka/database';
 import { ShippingModule } from './shipping/shipping.module';
 import { ProductsModule } from './products/products.module';
 
