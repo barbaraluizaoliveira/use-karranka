@@ -43,6 +43,10 @@ model Product {
   oldPrice        Decimal?         @map("old_price") @db.Decimal(10, 2)
   discountPercent Int?             @map("discount_percent")
   imageUrl        String?          @map("image_url") @db.VarChar(255)
+  weightKg        Decimal          @default(0.3) @map("weight_kg") @db.Decimal(6, 3)
+  heightCm        Int              @default(5)  @map("height_cm")
+  widthCm         Int              @default(20) @map("width_cm")
+  lengthCm        Int              @default(30) @map("length_cm")
   collection      Collection       @relation(fields: [collectionId], references: [id])
   colors          ProductColor[]
   sizes           ProductSize[]

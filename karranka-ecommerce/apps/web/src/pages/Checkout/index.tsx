@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { useCart } from '../../context/CartContext';
+import { api } from '../../services/api';
 import axios from 'axios';
 import { PageWithHeader } from '../../components/PageWithHeader';
 
@@ -119,11 +120,13 @@ export function Checkout() {
 
           // 2. Chama a rota de frete do SEU back-end NestJS para calcular o valor com base no CEP/UF
           try {
-            const responseBack = await axios.post('http://localhost:3000/shipping/calculate', {
+            const responseBack = await api.post('/shipping/calculate', {
               cep: limpo,
-              uf: responseCep.data.uf
+              uf: responseCep.data.uf,
+              cidade: responseCep.data.localidade
             });
-            setFrete(responseBack.data.price);
+           const opcoes = responseBack.data;
+           setFrete(opcoes.length > 0 ? opcoes[0].preco : 0);
           } catch (errApi) {
             console.warn('Erro ao consultar back-end de frete, usando regra padrão', errApi);
             // Fallback caso a rota específica do back varie: PE = 6.90, Outros = 22.00
@@ -281,7 +284,7 @@ export function Checkout() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#666', margin: '0.5rem 0' }}>
                 <span>Frete:</span>
-                <span>{frete === 0 ? 'A calcular' : frete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                <span>{!frete ? 'A calcular' : frete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem', color: '#111' }}>
                 <span>Total Geral:</span>
