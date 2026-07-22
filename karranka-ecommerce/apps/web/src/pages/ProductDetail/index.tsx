@@ -100,7 +100,6 @@ const CurrentPrice = styled.span`
   font-family: ${props => props.theme.fonts.titles};
   color: ${props => props.theme.colors.primary};
   font-size: 2rem;
- chain-case: uppercase;
 `;
 
 const OldPrice = styled.span`
@@ -221,6 +220,12 @@ export function ProductDetail() {
   if (!product) {
     return (
       <Container>
+        <BackButton onClick={() => navigate(-1)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Voltar para a vitrine
+          </BackButton>
         <StatusText>Produto não encontrado.</StatusText>
       </Container>
     );

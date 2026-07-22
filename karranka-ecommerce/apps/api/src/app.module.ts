@@ -1,21 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-// import { PrismaModule } from './prisma/prisma.module';
-// import { ShippingModule } from './modules/shipping/shipping.module';
-// import { ProductsModule } from './modules/products/products.module';
-// import { AuthModule } from './modules/auth/auth.module';
-// import { CartModule } from './modules/cart/cart.module';
+import { PrismaModule } from '../../../packages/database/src/prisma/prisma.module';
+import { ShippingModule } from './shipping/shipping.module';
+import { ProductsModule } from './products/products.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
-    // PrismaModule,
-    // ProductsModule,
-    // AuthModule,
-    // CartModule,
-    // ShippingModule,
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    ProductsModule,
+    ShippingModule,
   ],
   controllers: [],
   providers: [],

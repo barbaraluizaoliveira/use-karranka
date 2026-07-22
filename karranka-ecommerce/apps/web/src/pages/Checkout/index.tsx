@@ -28,19 +28,26 @@ const StepBox = styled.div<{ active: boolean; disabled: boolean }>`
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  opacity: ${props => props.disabled ? 0.5 : 1};
-  pointer-events: ${props => props.disabled ? 'none' : 'auto'};
+  opacity: ${props => props.disabled ? 0.6 : 1};
   border-left: 4px solid ${props => props.active ? props.theme.colors.primary : 'transparent'};
+  transition: all 0.3s ease;
 `;
 
-const StepHeader = styled.h2`
-  font-family: ${props => props.theme.fonts.titles};
-  font-size: 1.4rem;
-  margin: 0 0 1.5rem 0;
-  text-transform: uppercase;
+const StepHeader = styled.div`
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  cursor: pointer;
+  h2 {
+    font-family: ${props => props.theme.fonts.titles};
+    font-size: 1.4rem;
+    margin: 0;
+    text-transform: uppercase;
+  }
+`;
+
+const StepContent = styled.div`
+  margin-top: 1.5rem;
 `;
 
 const InputGroup = styled.div`
@@ -49,18 +56,25 @@ const InputGroup = styled.div`
   gap: 1rem;
   margin-bottom: 1rem;
   @media (max-width: 480px) { grid-template-columns: 1fr; }
-  input { padding: 0.8rem; border: 1px solid #CCC; font-family: sans-serif; font-size: 1rem; }
+  input { padding: 0.8rem; border: 1px solid #CCC; font-family: sans-serif; font-size: 1rem; border-radius: 4px; }
 `;
 
-const ContinueButton = styled.button`
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+`;
+
+const ActionButton = styled.button<{ variant?: 'secondary' | 'primary' }>`
   padding: 1rem 2rem;
-  background-color: ${props => props.theme.colors.primary};
+  background-color: ${props => props.variant === 'secondary' ? '#6c757d' : props.theme.colors.primary};
   color: #FFF;
   border: none;
   font-family: ${props => props.theme.fonts.titles};
   text-transform: uppercase;
   cursor: pointer;
-  margin-top: 1rem;
+  border-radius: 4px;
+  flex: 1;
 `;
 
 const RadioOption = styled.label`
@@ -72,6 +86,7 @@ const RadioOption = styled.label`
   margin-bottom: 0.5rem;
   cursor: pointer;
   font-family: sans-serif;
+  border-radius: 4px;
 `;
 
 export function Checkout() {
@@ -86,29 +101,52 @@ export function Checkout() {
 
   const [frete, setFrete] = useState<number>(0);
   const [metodoPagamento, setMetodoPagamento] = useState('CREDIT_CARD');
+  const [loadingFrete, setLoadingFrete] = useState(false);
 
+  // Busca ViaCEP e em seguida consulta o back-end para calcular o frete oficial
   const handleBuscarCEP = async (valorCep: string) => {
     setCep(valorCep);
     const limpo = valorCep.replace(/\D/g, '');
     if (limpo.length === 8) {
       try {
-        const response = await axios.get(`https://viacep.com.br/ws/${limpo}/json/`);
-        if (!response.data.erro) {
-          setLogradouro(response.data.logradouro);
-          setBairro(response.data.bairro);
-          setCidade(response.data.localidade + ' - ' + response.data.uf);
-          setFrete(response.data.uf === 'PE' ? 6.90 : 22.00);
+        setLoadingFrete(true);
+        // 1. Pega os dados do endereço pelo ViaCEP
+        const responseCep = await axios.get(`https://viacep.com.br/ws/${limpo}/json/`);
+        if (!responseCep.data.erro) {
+          setLogradouro(responseCep.data.logradouro);
+          setBairro(responseCep.data.bairro);
+          setCidade(responseCep.data.localidade + ' - ' + responseCep.data.uf);
+
+          // 2. Chama a rota de frete do SEU back-end NestJS para calcular o valor com base no CEP/UF
+          try {
+            const responseBack = await axios.post('http://localhost:3000/shipping/calculate', {
+              cep: limpo,
+              uf: responseCep.data.uf
+            });
+            setFrete(responseBack.data.price);
+          } catch (errApi) {
+            console.warn('Erro ao consultar back-end de frete, usando regra padrão', errApi);
+            // Fallback caso a rota específica do back varie: PE = 6.90, Outros = 22.00
+            setFrete(responseCep.data.uf === 'PE' ? 6.90 : 22.00);
+          }
         }
       } catch (err) {
         console.error('Erro ao buscar CEP', err);
+      } finally {
+        setLoadingFrete(false);
       }
     }
   };
 
-  const handleFinalizarCompra = () => {
-    alert('Compra realizada com Sucesso! Gerando pedido no banco...');
-    clearCart();
-    window.location.href = '/';
+  const handleFinalizarCompra = async () => {
+    try {
+      // Aqui você pode disparar a criação do pedido no seu back-end se desejar
+      alert('Compra realizada com Sucesso! Gerando pedido no banco...');
+      clearCart();
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Erro ao finalizar pedido', err);
+    }
   };
 
   return (
@@ -116,48 +154,95 @@ export function Checkout() {
       <Container>
         <CheckoutGrid>
           <Column>
+            
             {/* PASSO 1: ENDEREÇO */}
-            <StepBox active={step === 1} disabled={step > 1}>
-              <StepHeader>1. Dados de Entrega</StepHeader>
+            <StepBox active={step === 1} disabled={false}>
+              <StepHeader onClick={() => setStep(1)}>
+                <h2>1. Dados de Entrega</h2>
+                {step > 1 && <span style={{ fontSize: '0.85rem', color: '#28a745', fontWeight: 'bold' }}>Alterar</span>}
+              </StepHeader>
+
               {step === 1 && (
-                <>
+                <StepContent>
                   <InputGroup style={{ gridTemplateColumns: '1fr' }}>
-                    <input type="text" placeholder="CEP" value={cep} onChange={(e) => handleBuscarCEP(e.target.value)} maxLength={9} />
+                    <input 
+                      type="text" 
+                      placeholder="CEP (ex: 50000-000)" 
+                      value={cep} 
+                      onChange={(e) => handleBuscarCEP(e.target.value)} 
+                      maxLength={9} 
+                    />
                   </InputGroup>
                   <InputGroup>
-                    <input type="text" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} />
-                    <input type="text" placeholder="Rua / Logradouro" value={logradouro} readOnly />
+                    <input 
+                      type="text" 
+                      placeholder="Número" 
+                      value={numero} 
+                      onChange={(e) => setNumero(e.target.value)} 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Rua / Logradouro" 
+                      value={logradouro} 
+                      onChange={(e) => setLogradouro(e.target.value)} 
+                    />
                   </InputGroup>
                   <InputGroup>
-                    <input type="text" placeholder="Bairro" value={bairro} readOnly />
-                    <input type="text" placeholder="Cidade" value={cidade} readOnly />
+                    <input 
+                      type="text" 
+                      placeholder="Bairro" 
+                      value={bairro} 
+                      onChange={(e) => setBairro(e.target.value)} 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Cidade" 
+                      value={cidade} 
+                      onChange={(e) => setCidade(e.target.value)} 
+                    />
                   </InputGroup>
-                  <ContinueButton onClick={() => numero && logradouro && setStep(2)}>Continuar para Entrega</ContinueButton>
-                </>
+                  <ActionButton 
+                    disabled={!numero || !logradouro || cep.replace(/\D/g, '').length !== 8} 
+                    onClick={() => setStep(2)}
+                  >
+                    Continuar para Entrega
+                  </ActionButton>
+                </StepContent>
               )}
             </StepBox>
 
             {/* PASSO 2: MÉTODO DE ENTREGA */}
-            <StepBox active={step === 2} disabled={step < 2 || step > 2}>
-              <StepHeader>2. Opções de Envio</StepHeader>
+            <StepBox active={step === 2} disabled={step < 2}>
+              <StepHeader onClick={() => cep && numero && setStep(2)}>
+                <h2>2. Opções de Envio</h2>
+                {step > 2 && <span style={{ fontSize: '0.85rem', color: '#28a745', fontWeight: 'bold' }}>Alterar</span>}
+              </StepHeader>
+
               {step === 2 && (
-                <>
+                <StepContent>
                   <RadioOption>
                     <input type="radio" name="shipping" defaultChecked />
                     <div>
-                      <strong>Entrega Normal:</strong> estimado em até 7 dias úteis - {frete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      <strong>Entrega Normal:</strong> estimado em até 7 dias úteis - {loadingFreightText(loadingFrete, frete)}
                     </div>
                   </RadioOption>
-                  <ContinueButton onClick={() => setStep(3)}>Continuar para Pagamento</ContinueButton>
-                </>
+                  
+                  <ButtonGroup>
+                    <ActionButton variant="secondary" onClick={() => setStep(1)}>Voltar</ActionButton>
+                    <ActionButton onClick={() => setStep(3)}>Continuar para Pagamento</ActionButton>
+                  </ButtonGroup>
+                </StepContent>
               )}
             </StepBox>
 
             {/* PASSO 3: PAGAMENTO */}
             <StepBox active={step === 3} disabled={step < 3}>
-              <StepHeader>3. Forma de Pagamento</StepHeader>
+              <StepHeader onClick={() => frete > 0 && setStep(3)}>
+                <h2>3. Forma de Pagamento</h2>
+              </StepHeader>
+
               {step === 3 && (
-                <>
+                <StepContent>
                   <RadioOption onClick={() => setMetodoPagamento('CREDIT_CARD')}>
                     <input type="radio" name="payment" checked={metodoPagamento === 'CREDIT_CARD'} readOnly />
                     <strong>Cartão de Crédito</strong>
@@ -166,12 +251,17 @@ export function Checkout() {
                     <input type="radio" name="payment" checked={metodoPagamento === 'PIX'} readOnly />
                     <strong>Pix (Aprovação Imediata)</strong>
                   </RadioOption>
-                  <ContinueButton style={{ backgroundColor: '#28a745', width: '100%' }} onClick={handleFinalizarCompra}>
-                    Finalizar Emissão do Pedido
-                  </ContinueButton>
-                </>
+
+                  <ButtonGroup>
+                    <ActionButton variant="secondary" onClick={() => setStep(2)}>Voltar</ActionButton>
+                    <ActionButton style={{ backgroundColor: '#28a745' }} onClick={handleFinalizarCompra}>
+                      Finalizar Emissão do Pedido
+                    </ActionButton>
+                  </ButtonGroup>
+                </StepContent>
               )}
             </StepBox>
+
           </Column>
 
           {/* RESUMO DA DIREITA */}
@@ -203,4 +293,9 @@ export function Checkout() {
       </Container>
     </PageWithHeader>
   );
+}
+
+function loadingFreightText(loading: boolean, frete: number) {
+  if (loading) return 'Calculando...';
+  return frete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }

@@ -8,12 +8,16 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "cd apps/api && npm run start:dev",
-    "dev:web": "cd web && npm run dev",
+    "dev:web": "cd apps/web && npm run dev",
     "build": "turbo run build"
   },
   "packageManager": "npm@11.18.0",
   "devDependencies": {
     "concurrently": "^9.2.4",
     "vite-plugin-svgr": "^5.2.0"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.9.0",
+    "pg": "^8.22.0"
   }
 }
