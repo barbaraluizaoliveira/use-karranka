@@ -5,6 +5,13 @@ import { api } from '../../services/api';
 import axios from 'axios';
 import { PageWithHeader } from '../../components/PageWithHeader';
 
+interface ShippingOption {
+  id: string;
+  nome: string;
+  prazo: string;
+  preco: number;
+}
+
 const Container = styled.main`
   min-height: 100vh;
   background-color: ${props => props.theme.colors.background};
@@ -24,13 +31,13 @@ const CheckoutGrid = styled.div`
 
 const Column = styled.div`display: flex; flex-direction: column; gap: 1.5rem;`;
 
-const StepBox = styled.div<{ active: boolean; disabled: boolean }>`
+const StepBox = styled.div<{ $active: boolean; disabled: boolean }>`
   background-color: #FFFFFF;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   opacity: ${props => props.disabled ? 0.6 : 1};
-  border-left: 4px solid ${props => props.active ? props.theme.colors.primary : 'transparent'};
+  border-left: 4px solid ${props => props.$active ? props.theme.colors.primary : 'transparent'};
   transition: all 0.3s ease;
 `;
 
@@ -57,7 +64,25 @@ const InputGroup = styled.div`
   gap: 1rem;
   margin-bottom: 1rem;
   @media (max-width: 480px) { grid-template-columns: 1fr; }
-  input { padding: 0.8rem; border: 1px solid #CCC; font-family: sans-serif; font-size: 1rem; border-radius: 4px; }
+  input, select { 
+    padding: 0.8rem; 
+    border: 1px solid #CCC; 
+    font-family: sans-serif; 
+    font-size: 1rem; 
+    border-radius: 4px; 
+    width: 100%;
+  }
+`;
+
+const CardDetailsContainer = styled.div`
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background-color: #FAFAFA;
+  border: 1px solid #E0E0E0;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 `;
 
 const ButtonGroup = styled.div`
@@ -92,7 +117,7 @@ const RadioOption = styled.label`
 
 export function Checkout() {
   const { cartItems, getCartTotal, clearCart } = useCart();
-  const [step, setStep] = useState<number>(1); // 1 = Endereço, 2 = Entrega, 3 = Pagamento
+  const [step, setStep] = useState<number>(1);
   
   const [cep, setCep] = useState('');
   const [logradouro, setLogradouro] = useState('');
@@ -100,50 +125,91 @@ export function Checkout() {
   const [cidade, setCidade] = useState('');
   const [numero, setNumero] = useState('');
 
+  const [opcoesFrete, setOpcoesFrete] = useState<ShippingOption[]>([]);
+  const [opcaoSelecionada, setOpcaoSelecionada] = useState<ShippingOption | null>(null);
   const [frete, setFrete] = useState<number>(0);
   const [metodoPagamento, setMetodoPagamento] = useState('CREDIT_CARD');
   const [loadingFrete, setLoadingFrete] = useState(false);
 
-  // Busca ViaCEP e em seguida consulta o back-end para calcular o frete oficial
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [cardExpiration, setCardExpiration] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
+  const [installments, setInstallments] = useState('1');
+
+  const resetAddressAndShipping = () => {
+    setLogradouro('');
+    setBairro('');
+    setCidade('');
+    setNumero('');
+    setOpcoesFrete([]);
+    setOpcaoSelecionada(null);
+    setFrete(0);
+  };
+
   const handleBuscarCEP = async (valorCep: string) => {
     setCep(valorCep);
     const limpo = valorCep.replace(/\D/g, '');
-    if (limpo.length === 8) {
-      try {
-        setLoadingFrete(true);
-        // 1. Pega os dados do endereço pelo ViaCEP
-        const responseCep = await axios.get(`https://viacep.com.br/ws/${limpo}/json/`);
-        if (!responseCep.data.erro) {
-          setLogradouro(responseCep.data.logradouro);
-          setBairro(responseCep.data.bairro);
-          setCidade(responseCep.data.localidade + ' - ' + responseCep.data.uf);
 
-          // 2. Chama a rota de frete do SEU back-end NestJS para calcular o valor com base no CEP/UF
-          try {
-            const responseBack = await api.post('/shipping/calculate', {
-              cep: limpo,
-              uf: responseCep.data.uf,
-              cidade: responseCep.data.localidade
-            });
-           const opcoes = responseBack.data;
-           setFrete(opcoes.length > 0 ? opcoes[0].preco : 0);
-          } catch (errApi) {
-            console.warn('Erro ao consultar back-end de frete, usando regra padrão', errApi);
-            // Fallback caso a rota específica do back varie: PE = 6.90, Outros = 22.00
-            setFrete(responseCep.data.uf === 'PE' ? 6.90 : 22.00);
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao buscar CEP', err);
-      } finally {
-        setLoadingFrete(false);
-      }
+    if (limpo.length !== 8) {
+      resetAddressAndShipping();
+      return;
     }
+
+    try {
+      setLoadingFrete(true);
+      const responseCep = await axios.get(`https://viacep.com.br/ws/${limpo}/json/`);
+      if (!responseCep.data.erro) {
+        setLogradouro(responseCep.data.logradouro);
+        setBairro(responseCep.data.bairro);
+        setCidade(responseCep.data.localidade + ' - ' + responseCep.data.uf);
+
+        try {
+          const responseBack = await api.post('/shipping/calculate', {
+            cep: limpo,
+            items: cartItems.map(item => ({ productId: item.productId, quantity: item.quantity }))
+          });
+          const opcoes: ShippingOption[] = responseBack.data;
+          setOpcoesFrete(opcoes);
+
+          if (opcoes.length > 0) {
+            setOpcaoSelecionada(opcoes[0]);
+            setFrete(opcoes[0].preco);
+          } else {
+            setOpcaoSelecionada(null);
+            setFrete(0);
+          }
+        } catch (errApi) {
+          console.warn('Erro ao consultar back-end de frete', errApi);
+          setOpcoesFrete([]);
+          setOpcaoSelecionada(null);
+          setFrete(responseCep.data.uf === 'PE' ? 6.90 : 22.00);
+        }
+      } else {
+        resetAddressAndShipping();
+      }
+    } catch (err) {
+      console.error('Erro ao buscar CEP', err);
+      resetAddressAndShipping();
+    } finally {
+      setLoadingFrete(false);
+    }
+  };
+
+  const isCardFormValid = () => {
+    const cleanNumber = cardNumber.replace(/\D/g, '');
+    const cleanExpiration = cardExpiration.replace(/\D/g, '');
+    const cleanCvc = cardCvc.replace(/\D/g, '');
+    return (
+      cleanNumber.length >= 13 &&
+      cardHolder.trim().length > 3 &&
+      cleanExpiration.length === 4 &&
+      cleanCvc.length >= 3
+    );
   };
 
   const handleFinalizarCompra = async () => {
     try {
-      // Aqui você pode disparar a criação do pedido no seu back-end se desejar
       alert('Compra realizada com Sucesso! Gerando pedido no banco...');
       clearCart();
       window.location.href = '/';
@@ -158,8 +224,7 @@ export function Checkout() {
         <CheckoutGrid>
           <Column>
             
-            {/* PASSO 1: ENDEREÇO */}
-            <StepBox active={step === 1} disabled={false}>
+            <StepBox $active={step === 1} disabled={false}>
               <StepHeader onClick={() => setStep(1)}>
                 <h2>1. Dados de Entrega</h2>
                 {step > 1 && <span style={{ fontSize: '0.85rem', color: '#28a745', fontWeight: 'bold' }}>Alterar</span>}
@@ -214,8 +279,7 @@ export function Checkout() {
               )}
             </StepBox>
 
-            {/* PASSO 2: MÉTODO DE ENTREGA */}
-            <StepBox active={step === 2} disabled={step < 2}>
+            <StepBox $active={step === 2} disabled={step < 2}>
               <StepHeader onClick={() => cep && numero && setStep(2)}>
                 <h2>2. Opções de Envio</h2>
                 {step > 2 && <span style={{ fontSize: '0.85rem', color: '#28a745', fontWeight: 'bold' }}>Alterar</span>}
@@ -223,23 +287,67 @@ export function Checkout() {
 
               {step === 2 && (
                 <StepContent>
-                  <RadioOption>
-                    <input type="radio" name="shipping" defaultChecked />
-                    <div>
-                      <strong>Entrega Normal:</strong> estimado em até 7 dias úteis - {loadingFreightText(loadingFrete, frete)}
-                    </div>
-                  </RadioOption>
+                  {loadingFrete ? (
+                    <p style={{ fontFamily: 'sans-serif', color: '#666' }}>Calculando frete no Melhor Envio...</p>
+                  ) : opcoesFrete.length > 0 ? (
+                    opcoesFrete.map((opcao) => (
+                      <RadioOption 
+                        key={opcao.id}
+                        onClick={() => {
+                          setOpcaoSelecionada(opcao);
+                          setFrete(opcao.preco);
+                        }}
+                        style={{
+                          borderColor: opcaoSelecionada?.id === opcao.id ? '#000' : '#E0E0E0',
+                          backgroundColor: opcaoSelecionada?.id === opcao.id ? '#F9F9F9' : '#FFF'
+                        }}
+                      >
+                        <input 
+                          type="radio" 
+                          name="shipping" 
+                          checked={opcaoSelecionada?.id === opcao.id} 
+                          readOnly 
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                          <div>
+                            <strong>{opcao.nome}</strong>
+                            <span style={{ display: 'block', fontSize: '0.85rem', color: '#666' }}>
+                              Prazo: {opcao.prazo}
+                            </span>
+                          </div>
+                          <strong>
+                            {opcao.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </strong>
+                        </div>
+                      </RadioOption>
+                    ))
+                  ) : frete > 0 ? (
+                    <RadioOption>
+                      <input type="radio" name="shipping" defaultChecked />
+                      <div>
+                        <strong>Entrega Padrão:</strong> {frete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </div>
+                    </RadioOption>
+                  ) : (
+                    <p style={{ fontFamily: 'sans-serif', color: '#c00' }}>
+                      Nenhuma opção de frete disponível.
+                    </p>
+                  )}
                   
                   <ButtonGroup>
                     <ActionButton variant="secondary" onClick={() => setStep(1)}>Voltar</ActionButton>
-                    <ActionButton onClick={() => setStep(3)}>Continuar para Pagamento</ActionButton>
+                    <ActionButton 
+                      disabled={!opcaoSelecionada && frete === 0} 
+                      onClick={() => setStep(3)}
+                    >
+                      Continuar para Pagamento
+                    </ActionButton>
                   </ButtonGroup>
                 </StepContent>
               )}
             </StepBox>
 
-            {/* PASSO 3: PAGAMENTO */}
-            <StepBox active={step === 3} disabled={step < 3}>
+            <StepBox $active={step === 3} disabled={step < 3}>
               <StepHeader onClick={() => frete > 0 && setStep(3)}>
                 <h2>3. Forma de Pagamento</h2>
               </StepHeader>
@@ -250,6 +358,57 @@ export function Checkout() {
                     <input type="radio" name="payment" checked={metodoPagamento === 'CREDIT_CARD'} readOnly />
                     <strong>Cartão de Crédito</strong>
                   </RadioOption>
+
+                  {metodoPagamento === 'CREDIT_CARD' && (
+                    <CardDetailsContainer>
+                      <InputGroup style={{ gridTemplateColumns: '1fr' }}>
+                        <input 
+                          type="text" 
+                          placeholder="Número do Cartão" 
+                          value={cardNumber} 
+                          onChange={(e) => setCardNumber(e.target.value)} 
+                        />
+                      </InputGroup>
+
+                      <InputGroup style={{ gridTemplateColumns: '1fr' }}>
+                        <input 
+                          type="text" 
+                          placeholder="Nome impresso no Cartão" 
+                          value={cardHolder} 
+                          onChange={(e) => setCardHolder(e.target.value)} 
+                        />
+                      </InputGroup>
+
+                      <InputGroup>
+                        <input 
+                          type="text" 
+                          placeholder="Validade (MM/AA)" 
+                          value={cardExpiration} 
+                          onChange={(e) => setCardExpiration(e.target.value)} 
+                          maxLength={5} 
+                        />
+                        <input 
+                          type="text" 
+                          placeholder="CVC / CVV" 
+                          value={cardCvc} 
+                          onChange={(e) => setCardCvc(e.target.value)} 
+                          maxLength={4} 
+                        />
+                      </InputGroup>
+
+                      <InputGroup style={{ gridTemplateColumns: '1fr' }}>
+                        <select 
+                          value={installments} 
+                          onChange={(e) => setInstallments(e.target.value)}
+                        >
+                          <option value="1">1x de {((getCartTotal() + frete)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} sem juros</option>
+                          <option value="2">2x de {((getCartTotal() + frete) / 2).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} sem juros</option>
+                          <option value="3">3x de {((getCartTotal() + frete) / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} sem juros</option>
+                        </select>
+                      </InputGroup>
+                    </CardDetailsContainer>
+                  )}
+
                   <RadioOption onClick={() => setMetodoPagamento('PIX')}>
                     <input type="radio" name="payment" checked={metodoPagamento === 'PIX'} readOnly />
                     <strong>Pix (Aprovação Imediata)</strong>
@@ -257,7 +416,11 @@ export function Checkout() {
 
                   <ButtonGroup>
                     <ActionButton variant="secondary" onClick={() => setStep(2)}>Voltar</ActionButton>
-                    <ActionButton style={{ backgroundColor: '#28a745' }} onClick={handleFinalizarCompra}>
+                    <ActionButton 
+                      style={{ backgroundColor: '#28a745' }} 
+                      disabled={metodoPagamento === 'CREDIT_CARD' && !isCardFormValid()}
+                      onClick={handleFinalizarCompra}
+                    >
                       Finalizar Emissão do Pedido
                     </ActionButton>
                   </ButtonGroup>
@@ -267,9 +430,8 @@ export function Checkout() {
 
           </Column>
 
-          {/* RESUMO DA DIREITA */}
           <Column>
-            <StepBox active={false} disabled={false} style={{ position: 'sticky', top: '2rem' }}>
+            <StepBox $active={false} disabled={false} style={{ position: 'sticky', top: '2rem' }}>
               <h3 style={{ margin: '0 0 1rem 0' }}>Resumo do Pedido</h3>
               {cartItems.map(item => (
                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
@@ -296,9 +458,4 @@ export function Checkout() {
       </Container>
     </PageWithHeader>
   );
-}
-
-function loadingFreightText(loading: boolean, frete: number) {
-  if (loading) return 'Calculando...';
-  return frete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }

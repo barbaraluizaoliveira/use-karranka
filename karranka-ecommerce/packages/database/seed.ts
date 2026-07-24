@@ -63,6 +63,10 @@ async function main() {
       category: 'CLOTHING',
       price: 199.90,
       imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1783972405/figa_camisa_branca_pcwzrv.jpg',
+      weightKg: 0.3,
+      heightCm: 5,
+      widthCm: 25,
+      lengthCm: 35,
     },
   });
 
@@ -116,7 +120,11 @@ async function main() {
       description: 'Camiseta streetwear oversized clássica em suedine pesada com logo Karranka.',
       category: 'CLOTHING',
       price: 199.90,
-      imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1783972409/karranka_camisa_branca_yexgqx.jpg', // Substitua depois pela foto oficial Karranka
+      imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1783972409/karranka_camisa_branca_yexgqx.jpg',
+      weightKg: 0.3,
+      heightCm: 5,
+      widthCm: 25,
+      lengthCm: 35,
     },
   });
 
@@ -151,6 +159,10 @@ async function main() {
       category: 'CLOTHING',
       price: 179.90,
       imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1784029234/WhatsApp_Image_2026-07-14_at_08.27.39_uotvuh.jpg', 
+      weightKg: 0.3,
+      heightCm: 5,
+      widthCm: 25,
+      lengthCm: 35,
     },
   });
 
@@ -186,7 +198,11 @@ async function main() {
       description: 'Boné dadhat em algodão com bordado em alto relevo.',
       category: 'ACCESSORIES',
       price: 119.90,
-      imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1784029244/WhatsApp_Image_2026-07-14_at_08.31.01_rmhcwu.jpg', 
+      imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1784029244/WhatsApp_Image_2026-07-14_at_08.31.01_rmhcwu.jpg',
+      weightKg: 0.25,
+      heightCm: 15,
+      widthCm: 20,
+      lengthCm: 20, 
     },
   });
 
