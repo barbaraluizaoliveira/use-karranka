@@ -25,6 +25,7 @@ export class OrdersService {
           );
         }
 
+        // Reserva o estoque no momento da criação
         await tx.productVariant.update({
           where: { id: item.variantId },
           data: {
@@ -83,6 +84,47 @@ export class OrdersService {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // --- NOVO MÉTODO PARA ATUALIZAR STATUS E DEVOLVER ESTOQUE ---
+  async updateOrderStatus(orderId: number, status: string) {
+    return await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { items: true },
+      });
+
+      if (!order) {
+        throw new BadRequestException('Pedido não encontrado.');
+      }
+
+      // Se o pedido já estava cancelado, ignora para não duplicar a devolução de estoque
+      if (order.status === 'CANCELLED') {
+        return order;
+      }
+
+      // Atualiza o status do pedido
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: { status },
+      });
+
+      // Se o novo status for CANCELLED, devolve as quantidades para o estoque
+      if (status === 'CANCELLED') {
+        for (const item of order.items) {
+          await tx.productVariant.update({
+            where: { id: item.variantId },
+            data: {
+              stockQuantity: {
+                increment: item.quantity, // Devolve a quantidade exata comprada
+              },
+            },
+          });
+        }
+      }
+
+      return updatedOrder;
     });
   }
 }

@@ -4,7 +4,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(createProductDto: CreateProductDto) {
     const collectionExists = await this.prisma.collection.findUnique({
@@ -15,7 +15,6 @@ export class ProductsService {
       throw new NotFoundException(`Coleção com ID ${createProductDto.collectionId} não encontrada.`);
     }
 
-    // Mapeia o DTO usando as chaves exatas do seu schema.prisma
     return this.prisma.product.create({
       data: {
         collectionId: createProductDto.collectionId,
@@ -33,7 +32,7 @@ export class ProductsService {
   async findAll(page: number = 1, limit: number = 8) {
     const skip = (page - 1) * limit;
 
-    const [data, totalItems] = await this.prisma.$transaction([
+    const [data, totalItems] = await Promise.all([
       this.prisma.product.findMany({
         skip,
         take: limit,
@@ -73,7 +72,7 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException('Produto não encontrado');
     }
-    
+
     return product;
   }
 }

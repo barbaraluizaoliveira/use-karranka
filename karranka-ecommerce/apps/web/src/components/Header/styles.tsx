@@ -58,7 +58,7 @@ export const SearchContainer = styled.div`
 
   position: relative;
 
- margin: 0 clamp(10px, 3vw, 50px);
+  margin: 0 clamp(10px, 3vw, 50px);
 
   @media (max-width: 1440px) {
     height: 64px;
@@ -216,4 +216,82 @@ export const CartBadge = styled.div`
   font-weight: 700;
 
   box-shadow: 0 2px 8px rgba(65, 105, 225, 0.3);
+`;
+
+/* =========================================
+   NOVOS ESTILOS DO MENU DE USUÁRIO
+   ========================================= */
+
+export const UserMenuWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+export const DropdownMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 15px); /* Dá um pequeno respiro abaixo do ícone */
+  right: -10px; /* Alinha a caixa mais ao centro do ícone */
+  width: 220px;
+  
+  background-color: #FFFFFF;
+  border: 1px solid #E5E5E5; 
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.05);
+  
+  z-index: 100000; /* Garante que fique acima de tudo no header */
+  
+  display: flex;
+  flex-direction: column;
+`;
+
+export const UserInfo = styled.div`
+  padding: 16px;
+  border-bottom: 1px solid #F0F0F0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  
+  .greeting {
+    font-size: 14px;
+    color: #6D6D6D; /* Mesma cor do placeholder do search para harmonia */
+  }
+  
+  .name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333333;
+  }
+`;
+
+export const DropdownItem = styled.button`
+  padding: 14px 16px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #F0F0F0;
+  
+  font-size: 15px;
+  color: #555555;
+  cursor: pointer;
+  
+  transition: background-color 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    background-color: #FAFAFA;
+    color: #000000;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &.logout {
+    color: #d9534f;
+    
+    &:hover {
+      background-color: #fdf5f5;
+      color: #c9302c;
+    }
+  }
 `;

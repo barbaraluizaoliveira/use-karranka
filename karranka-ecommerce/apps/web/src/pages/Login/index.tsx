@@ -1,18 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
-import { Input as KarrankaInput } from "../../components/Input";
 import { api } from "../../services/api";
 
-import background from "../../assets/login-background.png";
-import lockIcon from "../../assets/icons/lock.png";
 import googleIcon from "../../assets/icons/google.png";
-import appleIcon from "../../assets/icons/apple.png";
 import eyeOpen from "../../assets/icons/eye-open.svg";
 import eyeClosed from "../../assets/icons/eye-closed.svg";
 
 export function Login() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState(""); // Aceita Email ou CPF
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -21,20 +17,20 @@ export function Login() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Ajuste: Redireciona para a Home ("/") após login via Google
+  // Exibe a senha apenas se o usuário digitou algo no campo Email/CPF
+  const isIdentifierTyped = identifier.trim().length > 0;
+
+  // Trata token vindo do Google OAuth via URL
   useEffect(() => {
     const tokenFromUrl = searchParams.get("access_token") || searchParams.get("token");
 
     if (tokenFromUrl) {
-      // Remove todas as aspas simples ('), duplas (") e espaços em branco das pontas
-      const cleanToken = tokenFromUrl.replace(/['"]+/g, '').trim();
-      
+      const cleanToken = tokenFromUrl.replace(/['"]+/g, "").trim();
       localStorage.setItem("@Karranka:token", cleanToken);
       setSearchParams({}, { replace: true });
       navigate("/", { replace: true });
     }
   }, [searchParams, setSearchParams, navigate]);
-
 
   async function handleLogin(event: React.FormEvent) {
     event.preventDefault();
@@ -42,318 +38,333 @@ export function Login() {
     setError("");
 
     try {
-      const response = await api.post("/auth/login", { email, password });
-      const { access_token } = response.data;
+      // DTO Atualizado: Enviando 'identifier' (Email/CPF) em vez de apenas 'email'
+      const response = await api.post("/auth/login", { 
+  identifier: identifier.trim(),
+  password 
+});
+      
+      const { accessToken } = response.data;
 
-      if (access_token) {
-        //localStorage.setItem("token", access_token);
-        localStorage.setItem("@Karranka:token", access_token);
-        
-        // Ajuste: Redireciona para a Home ("/") após login manual
-        setTimeout(() => {
-          navigate("/", { replace: true });
-        }, 100);
-      }
+if (accessToken) {
+  localStorage.setItem("@Karranka:token", accessToken);
+  setTimeout(() => {
+    navigate("/", { replace: true });
+  }, 100);
+}
     } catch (err: any) {
-      setError(err.response?.data?.message || "E-mail ou senha incorretos.");
+      setError(err.response?.data?.message || "Credenciais inválidas. Verifique os dados.");
     } finally {
       setLoading(false);
     }
   }
 
   function handleGoogleLogin() {
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3333'}/auth/google`;
+    window.location.href = `${import.meta.env.VITE_API_URL || "http://localhost:3344"}/auth/google`;
   }
 
   return (
-    <Container>
-      <BrandContainer>
-        <StreetwearText>
-          KARRANKA -<br />
-          O PODER<br />
-          DO STREETWEAR
-        </StreetwearText>
-      </BrandContainer>
+    <PageContainer>
+      <ContentWrapper>
+        {/* Chamada com linguagem Karranka */}
+        <Title>QUAL É O SEU DROP?</Title>
+        <Subtitle>Acesse sua conta para garantir sua proteção</Subtitle>
 
-      <LoginContainer>
-        <Card>
-          <Header>
-            <Title>Login</Title>
-            <Subtitle>Bem-vindo de volta</Subtitle>
-            <Description>Acesse sua conta Karranka</Description>
-          </Header>
+        {/* Botão do Google em Destaque */}
+        <GoogleButton type="button" onClick={handleGoogleLogin}>
+          <GoogleIcon src={googleIcon} alt="Google" />
+          <span>Continuar com o Google</span>
+        </GoogleButton>
 
-          <Form onSubmit={handleLogin}>
-            {error && <ErrorMessage>{error}</ErrorMessage>}
+        <DividerContainer>
+          <Line />
+          <DividerText>ou acesse com e-mail / cpf</DividerText>
+          <Line />
+        </DividerContainer>
 
-            <KarrankaInput
-              label="E-mail"
-              placeholder="E-mail"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+        <Form onSubmit={handleLogin}>
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+
+          <InputGroup>
+            <StyledInput
+              type="text"
+              placeholder="E-mail ou CPF"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
             />
+          </InputGroup>
 
-            <InputWrapper>
-              <Icon src={lockIcon} />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <EyeButton type="button" onClick={() => setShowPassword((prev) => !prev)}>
-                <EyeIcon src={showPassword ? eyeOpen : eyeClosed} alt="Mostrar senha" />
-              </EyeButton>
-            </InputWrapper>
+          {/* O campo de senha e os botões só se revelam quando o usuário começa a digitar no CPF/E-mail */}
+          {isIdentifierTyped && (
+            <>
+              <InputGroup>
+                <PasswordInputWrapper>
+                  <StyledInput
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Senha"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <EyeButton type="button" onClick={() => setShowPassword((prev) => !prev)}>
+                    <EyeIcon src={showPassword ? eyeOpen : eyeClosed} alt="Mostrar senha" />
+                  </EyeButton>
+                </PasswordInputWrapper>
+              </InputGroup>
 
-            <ForgotPassword>Esqueci minha senha</ForgotPassword>
+              <ForgotPasswordWrapper>
+                <ForgotPassword type="button" onClick={() => navigate("/forgot-password")}>
+                  Esqueceu a senha?
+                </ForgotPassword>
+              </ForgotPasswordWrapper>
+            </>
+          )}
 
-            <LoginButton type="submit" disabled={loading}>
-              {loading ? "CARREGANDO..." : "ENTRAR"}
-            </LoginButton>
+          <SubmitButton type="submit" disabled={loading}>
+            {loading ? "CARREGANDO..." : "ENTRAR"}
+          </SubmitButton>
 
-            <Divider />
+          {isIdentifierTyped && (
+            <SecondaryButton type="button" onClick={() => navigate("/magic-link")}>
+              Entrar com código via E-mail
+            </SecondaryButton>
+          )}
+        </Form>
 
-            <Register>
-              Não tem uma conta? 
-              <strong 
-              onClick={() => navigate('/register')} 
-              style={{ cursor: 'pointer' }}
-              >
-              Cadastre-se
-              </strong>
-            </Register>
-
-            <SocialContainer>
-              <SocialButton type="button" onClick={handleGoogleLogin}>
-                <SocialIcon src={googleIcon} alt="Entrar com Google" />
-              </SocialButton>
-              <SocialButton type="button">
-                <SocialIcon src={appleIcon} alt="Entrar com Apple" />
-              </SocialButton>
-            </SocialContainer>
-          </Form>
-        </Card>
-      </LoginContainer>
-    </Container>
+        {/* Rodapé "Novo por aqui" adaptado pro tom de voz Karranka */}
+        <FooterText>
+          Novo por aqui?{" "}
+          <RegisterLink onClick={() => navigate("/register")}>
+            Crie sua conta agora
+          </RegisterLink>
+        </FooterText>
+      </ContentWrapper>
+    </PageContainer>
   );
 }
 
-// ... (seus Styled Components permanecem inalterados abaixo)
-const ErrorMessage = styled.p`
-  color: #ff4d4d;
-  font-size: 0.9rem;
-  text-align: center;
-  font-weight: 600;
-  margin: 0 0 4px 0;
-`;
+// ==========================================
+// STYLED COMPONENTS - Layout Centralizado
+// ==========================================
 
-const Container = styled.div`
+const PageContainer = styled.div`
   width: 100%;
-  height: 100vh;
+  min-height: calc(100vh - 120px); /* Desconta a altura do Header da Karranka */
   display: flex;
   justify-content: center;
   align-items: center;
-  position: relative;
-  overflow: hidden;
-  background-color: #f4f4f4;
-
-  &::after {
-    content: "";
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 45%;
-    background-image: url(${background});
-    background-repeat: no-repeat;
-    background-position: right bottom;
-    background-size: contain;
-    z-index: 0;
-    pointer-events: none;
-  }
-
-  @media (max-width: 900px) {
-    &::after { display: none; }
-  }
+  padding: 60px 20px;
+  background-color: #ffffff;
 `;
 
-const BrandContainer = styled.div`
-  position: absolute;
-  left: 80px;
-  z-index: 2;
-
-  @media (max-width: 1200px) { left: 40px; }
-  @media (max-width: 900px) { display: none; }
-`;
-
-const StreetwearText = styled.h1`
-  font-size: clamp(2.2rem, 3vw, 5.2rem);
-  font-family: ${(props) => props.theme.fonts.titles};
-  font-weight: 400;
-  line-height: 0.9;
-  margin: 0;
-`;
-
-const LoginContainer = styled.div`
-  z-index: 2;
+const ContentWrapper = styled.div`
   width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-`;
-
-const Card = styled.div`
-  width: 100%;
-  max-width: 560px;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(10px);
-  border-radius: 24px;
-  padding: 60px 55px;
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.14);
+  max-width: 420px;
   display: flex;
   flex-direction: column;
-
-  @media (max-width: 1280px) {
-    max-width: 460px;
-    padding: 40px 40px;
-  }
-`;
-
-const Header = styled.div`
-  text-align: center;
-  margin-bottom: 30px;
+  align-items: center;
 `;
 
 const Title = styled.h1`
-  font-size: 4.6rem;
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #111111;
   margin: 0;
-  line-height: 1;
-
-  @media (max-width: 1280px) { font-size: 3.4rem; }
+  text-align: center;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
 `;
 
-const Subtitle = styled.h2`
-  font-size: 1.3rem;
-  margin: 10px 0 0;
-  font-weight: 600;
-  color: #222;
+const Subtitle = styled.p`
+  font-size: 0.9rem;
+  color: #666666;
+  margin: 6px 0 28px 0;
+  text-align: center;
 `;
 
-const Description = styled.p`
-  margin: 8px 0 0;
-  color: #666;
-  font-size: 0.95rem;
-`;
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-`;
-
-const InputWrapper = styled.div`
+const GoogleButton = styled.button`
+  width: 100%;
+  height: 48px;
+  background-color: #ffffff;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  border: 1px solid #ddd;
-  border-radius: 999px;
-  padding: 16px 20px;
-  background: #fff;
-  transition: 0.2s;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #222222;
+  cursor: pointer;
+  transition: background 0.2s;
 
-  &:focus-within {
-    border-color: #999;
-    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+  &:hover {
+    background-color: #f7f7f7;
   }
 `;
 
-const Icon = styled.img`
-  width: 18px;
-  opacity: 0.7;
+const GoogleIcon = styled.img`
+  width: 20px;
+  height: 20px;
 `;
 
-const Input = styled.input`
+const DividerContainer = styled.div`
   width: 100%;
-  border: none;
+  display: flex;
+  align-items: center;
+  margin: 22px 0;
+`;
+
+const Line = styled.div`
+  flex: 1;
+  height: 1px;
+  background-color: #e2e2e2;
+`;
+
+const DividerText = styled.span`
+  font-size: 0.75rem;
+  color: #888888;
+  padding: 0 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+`;
+
+const Form = styled.form`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const ErrorMessage = styled.div`
+  background-color: #fff0f0;
+  color: #d93025;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  text-align: center;
+  border: 1px solid #f8c4c4;
+`;
+
+const InputGroup = styled.div`
+  width: 100%;
+`;
+
+const StyledInput = styled.input`
+  width: 100%;
+  height: 50px;
+  padding: 0 16px;
+  border-radius: 6px;
+  border: 1px solid #cccccc;
+  background-color: #ffffff;
+  font-size: 0.95rem;
+  color: #111111;
   outline: none;
-  background: transparent;
-  font-size: 1rem;
+  box-sizing: border-box;
+
+  &::placeholder {
+    color: #999999;
+  }
+
+  &:focus {
+    border-color: #000000;
+  }
+`;
+
+const PasswordInputWrapper = styled.div`
+  position: relative;
+  width: 100%;
 `;
 
 const EyeButton = styled.button`
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
   border: none;
-  background: transparent;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+  opacity: 0.6;
+
+  &:hover {
+    opacity: 1;
+  }
 `;
 
 const EyeIcon = styled.img`
-  width: 20px;
-  height: 20px;
-  opacity: 0.7;
-  transition: 0.2s;
-  &:hover { opacity: 1; }
+  width: 18px;
+  height: 18px;
 `;
 
-const ForgotPassword = styled.p`
-  text-align: center;
-  font-size: 0.9rem;
-  color: #555;
-  cursor: pointer;
-  margin-top: 4px;
-  &:hover { text-decoration: underline; }
+const ForgotPasswordWrapper = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
 `;
 
-const LoginButton = styled.button`
-  margin-top: 10px;
-  width: 100%;
+const ForgotPassword = styled.button`
+  background: none;
   border: none;
-  border-radius: 999px;
-  padding: 14px;
-  background: linear-gradient(to right, #2f2f2f, #1f1f1f);
-  color: white;
-  font-size: 1.6rem;
+  font-size: 0.8rem;
+  color: #555555;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:hover {
+    color: #000000;
+  }
+`;
+
+const SubmitButton = styled.button`
+  width: 100%;
+  height: 50px;
+  margin-top: 8px;
+  background-color: #111111;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #2c2c2c;
+  }
+
+  &:disabled {
+    background-color: #aaaaaa;
+    cursor: not-allowed;
+  }
+`;
+
+const SecondaryButton = styled.button`
+  width: 100%;
+  height: 50px;
+  background-color: #ffffff;
+  color: #111111;
+  border: 1px solid #111111;
+  border-radius: 6px;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: 0.2s;
-  &:hover { transform: translateY(-2px); }
-  &:disabled { background: #999; cursor: not-allowed; transform: none; }
+
+  &:hover {
+    background-color: #f4f4f4;
+  }
 `;
 
-const Divider = styled.div`
-  height: 1px;
-  background: #e6e6e6;
-  margin: 18px 0;
+const FooterText = styled.p`
+  margin-top: 28px;
+  font-size: 0.9rem;
+  color: #666666;
 `;
 
-const Register = styled.p`
-  text-align: center;
-  font-size: 0.95rem;
-  strong { cursor: pointer; }
-`;
-
-const SocialContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 18px;
-  margin-top: 14px;
-`;
-
-const SocialButton = styled.button`
-  border: none;
-  background: transparent;
+const RegisterLink = styled.strong`
+  color: #000000;
   cursor: pointer;
-  transition: 0.2s;
-  &:hover { transform: scale(1.1); }
-`;
-
-const SocialIcon = styled.img`
-  width: 30px;
+  text-decoration: underline;
+  margin-left: 4px;
 `;

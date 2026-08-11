@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useCart } from '../../context/CartContext';
 import { api } from '../../services/api';
 import axios from 'axios';
 import { PageWithHeader } from '../../components/PageWithHeader';
+import { loadMercadoPago } from '@mercadopago/sdk-js';
+import { useNavigate } from 'react-router-dom';
 
 interface ShippingOption {
   id: string;
@@ -118,6 +120,7 @@ const RadioOption = styled.label`
 export function Checkout() {
   const { cartItems, getCartTotal, clearCart } = useCart();
   const [step, setStep] = useState<number>(1);
+  const navigate = useNavigate();
   
   const [cep, setCep] = useState('');
   const [logradouro, setLogradouro] = useState('');
@@ -130,12 +133,29 @@ export function Checkout() {
   const [frete, setFrete] = useState<number>(0);
   const [metodoPagamento, setMetodoPagamento] = useState('CREDIT_CARD');
   const [loadingFrete, setLoadingFrete] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  
+  const [pixData, setPixData] = useState<{ qr_code: string; qr_code_base64: string } | null>(null);
 
   const [cardNumber, setCardNumber] = useState('');
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiration, setCardExpiration] = useState('');
   const [cardCvc, setCardCvc] = useState('');
   const [installments, setInstallments] = useState('1');
+  const [userEmail, setUserEmail] = useState('');
+  const [userCpf, setUserCpf] = useState('');
+
+  useEffect(() => {
+    loadMercadoPago();
+
+    api.get('/auth/me').then((response) => {
+      setUserEmail(response.data.email);
+      setUserCpf(response.data.cpf);
+    }).catch(() => {
+      setUserEmail('');
+      setUserCpf('');
+    });
+  }, []);
 
   const resetAddressAndShipping = () => {
     setLogradouro('');
@@ -180,7 +200,6 @@ export function Checkout() {
             setFrete(0);
           }
         } catch (errApi) {
-          console.warn('Erro ao consultar back-end de frete', errApi);
           setOpcoesFrete([]);
           setOpcaoSelecionada(null);
           setFrete(responseCep.data.uf === 'PE' ? 6.90 : 22.00);
@@ -189,7 +208,6 @@ export function Checkout() {
         resetAddressAndShipping();
       }
     } catch (err) {
-      console.error('Erro ao buscar CEP', err);
       resetAddressAndShipping();
     } finally {
       setLoadingFrete(false);
@@ -209,14 +227,139 @@ export function Checkout() {
   };
 
   const handleFinalizarCompra = async () => {
+    setIsProcessingPayment(true);
     try {
-      alert('Compra realizada com Sucesso! Gerando pedido no banco...');
-      clearCart();
-      window.location.href = '/';
-    } catch (err) {
-      console.error('Erro ao finalizar pedido', err);
+      if (metodoPagamento === 'CREDIT_CARD') {
+        const mp = new (window as any).MercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
+
+        const [expMonth, expYear] = cardExpiration.split('/');
+        const cleanCardNumber = cardNumber.replace(/\D/g, '');
+        const bin = cleanCardNumber.slice(0, 6);
+
+        const paymentMethods = await mp.getPaymentMethods({ bin });
+        const paymentMethodId = paymentMethods.results[0].id;
+
+        const cardToken = await mp.createCardToken({
+          cardNumber: cleanCardNumber,
+          cardholderName: cardHolder,
+          cardExpirationMonth: expMonth,
+          cardExpirationYear: `20${expYear}`,
+          securityCode: cardCvc,
+        });
+
+        const orderPayload = {
+          items: cartItems.map(item => ({
+            productId: Number(item.productId),
+            variantId: Number(item.variantId),
+            quantity: Number(item.quantity),
+            price: Number(item.price) 
+          })),
+          shippingFee: Number(frete),
+          zipCode: cep.replace(/\D/g, ''),
+          street: logradouro,
+          number: numero,
+          neighborhood: bairro,
+          city: cidade.split(' - ')[0].trim(),
+          state: cidade.split(' - ')[1] ? cidade.split(' - ')[1].trim() : 'PE'
+        };
+
+        const orderResponse = await api.post('/orders', orderPayload);
+        const orderId = orderResponse.data.id;
+
+        const paymentResponse = await api.post('/payment', {
+          orderId: orderId,
+          token: cardToken.id,
+          transaction_amount: getCartTotal() + frete,
+          description: 'Pedido Karranka',
+          installments: Number(installments),
+          payment_method_id: paymentMethodId,
+          email: userEmail,
+          cpf: userCpf
+        });
+
+        if (paymentResponse.data.status === 'approved' || paymentResponse.data.status === 'in_process') {
+          clearCart();
+          navigate(`/order-success?orderId=${orderId}`);
+        } else {
+          alert('Pagamento recusado.');
+        }
+        
+      } else {
+        const orderPayloadPix = {
+          items: cartItems.map(item => ({
+            productId: Number(item.productId),
+            variantId: Number(item.variantId),
+            quantity: Number(item.quantity),
+            price: Number(item.price) 
+          })),
+          shippingFee: Number(frete),
+          zipCode: cep.replace(/\D/g, ''),
+          street: logradouro,
+          number: numero,
+          neighborhood: bairro,
+          city: cidade.split(' - ')[0].trim(),
+          state: cidade.split(' - ')[1] ? cidade.split(' - ')[1].trim() : 'PE'
+        };
+
+        const orderResponse = await api.post('/orders', orderPayloadPix);
+        const orderId = orderResponse.data.id;
+
+        const paymentResponsePix = await api.post('/payment/pix', {
+          orderId: orderId,
+          transaction_amount: getCartTotal() + frete,
+          description: 'Pedido Karranka',
+          email: userEmail,
+          cpf: userCpf
+        });
+
+        if (paymentResponsePix.data.qr_code) {
+          clearCart();
+          setPixData(paymentResponsePix.data);
+        }
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message;
+      const formatError = Array.isArray(errorMessage) ? errorMessage.join('\n') : errorMessage;
+      
+      alert(`Erro ao processar pagamento:\n${formatError || 'Tente novamente.'}`);
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
+
+  if (pixData) {
+    return (
+      <PageWithHeader>
+        <Container>
+          <div style={{ textAlign: 'center', backgroundColor: '#FFF', padding: '3rem', borderRadius: '8px', width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+            <h2 style={{ marginBottom: '1rem', color: '#28a745' }}>Pedido gerado com sucesso!</h2>
+            <p>Escaneie o QR Code abaixo no app do seu banco para pagar:</p>
+            
+            <img 
+              src={`data:image/jpeg;base64,${pixData.qr_code_base64}`} 
+              alt="QR Code Pix" 
+              style={{ width: '250px', height: '250px', margin: '2rem 0' }} 
+            />
+            
+            <div>
+              <p style={{ fontWeight: 'bold' }}>Ou use o código Copia e Cola:</p>
+              <textarea 
+                readOnly 
+                value={pixData.qr_code}
+                style={{ width: '100%', height: '80px', padding: '1rem', marginTop: '1rem', resize: 'none' }}
+              />
+              <button 
+                onClick={() => navigator.clipboard.writeText(pixData.qr_code)}
+                style={{ padding: '0.8rem 1.5rem', marginTop: '1rem', backgroundColor: '#000', color: '#FFF', border: 'none', cursor: 'pointer' }}
+              >
+                Copiar Código
+              </button>
+            </div>
+          </div>
+        </Container>
+      </PageWithHeader>
+    );
+  }
 
   return (
     <PageWithHeader>
@@ -417,11 +560,15 @@ export function Checkout() {
                   <ButtonGroup>
                     <ActionButton variant="secondary" onClick={() => setStep(2)}>Voltar</ActionButton>
                     <ActionButton 
-                      style={{ backgroundColor: '#28a745' }} 
-                      disabled={metodoPagamento === 'CREDIT_CARD' && !isCardFormValid()}
+                      style={{ 
+                        backgroundColor: '#28a745',
+                        opacity: isProcessingPayment ? 0.7 : 1,
+                        cursor: isProcessingPayment ? 'not-allowed' : 'pointer'
+                      }} 
+                      disabled={(metodoPagamento === 'CREDIT_CARD' && !isCardFormValid()) || isProcessingPayment}
                       onClick={handleFinalizarCompra}
                     >
-                      Finalizar Emissão do Pedido
+                      {isProcessingPayment ? 'Processando pagamento...' : 'Finalizar Emissão do Pedido'}
                     </ActionButton>
                   </ButtonGroup>
                 </StepContent>

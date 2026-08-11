@@ -17,7 +17,9 @@
     "vite-plugin-svgr": "^5.2.0"
   },
   "dependencies": {
+    "@karranka/database": "file:packages/database",
     "@prisma/adapter-pg": "^7.9.0",
+    "dotenv": "^17.4.2",
     "pg": "^8.22.0"
   }
 }

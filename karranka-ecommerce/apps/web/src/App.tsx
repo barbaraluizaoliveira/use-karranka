@@ -87,9 +87,7 @@ const ProductsGrid = styled.div`
   width: 100%;
   max-width: 1200px; 
   padding: 0 2rem;
-  max-height: 70vh; 
-  overflow-y: auto;
-  
+
   &::-webkit-scrollbar {
     display: none;
   }
@@ -101,88 +99,58 @@ const LoadingText = styled.p`
   font-size: 1.2rem;
 `;
 
-const mockBanners: Banner[] = [
-  {
-    id: 1,
-    title: 'Mosaico',
-    imageDesktopUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1784034205/Portf%C3%B3lio_profissional_minimalista_informativo_pre%C3%A7os_preto_e_branco_fot%C3%B3grafo_apresenta%C3%A7%C3%A3o_2_ptr7qz.jpg',
-    targetUrl: '#'
-  },
-  {
-    id: 2,
-    title: 'Lançamento Coleção Proteção - Karranka',
-    imageDesktopUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1784033779/Portf%C3%B3lio_profissional_minimalista_informativo_pre%C3%A7os_preto_e_branco_fot%C3%B3grafo_apresenta%C3%A7%C3%A3o_1_d6ea94.jpg',
-    targetUrl: '#'
-  }
-];
-
-const mockProducts = [
-  {
-    id: 5,
-    name: 'Camisa Oversized Figa Braba',
-    price: 199.90,
-    imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1783972405/figa_camisa_branca_pcwzrv.jpg'
-  },
-  {
-    id: 6,
-    name: 'Camisa Oversized Karranka',
-    price: 199.90,
-    imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1783972409/karranka_camisa_branca_yexgqx.jpg'
-  },
-  {
-    id: 8,
-    name: 'Boné Dadhat',
-    price: 119.90,
-    imageUrl: 'https://res.cloudinary.com/xkgoutyi/image/upload/v1784029244/WhatsApp_Image_2026-07-14_at_08.31.01_rmhcwu.jpg'
-  }
-];
+const EmptyText = styled(LoadingText)`
+  text-align: center;
+  grid-column: 1 / -1;
+`;
 
 export function App() {
   const [products, setProducts] = useState<any[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingBanners, setLoadingBanners] = useState(true);
 
   useEffect(() => {
     let active = true;
 
-    async function loadData() {
-      try {
-        const [productsResponse, bannersResponse] = await Promise.all([
-          api.get('/products?page=1&limit=8').catch(() => ({ data: null })),
-          api.get('/banners').catch(() => ({ data: null }))
-        ]);
-
+    // Busca produtos direto do banco/API
+    api.get('/products?page=1&limit=8')
+      .then(res => {
         if (!active) return;
+        const pData = res.data;
+        setProducts(Array.isArray(pData) ? pData : (pData.data || pData.products || []));
+      })
+      .catch(err => {
+        console.error("Erro ao carregar produtos:", err);
+        if (active) setProducts([]);
+      })
+      .finally(() => active && setLoadingProducts(false));
 
-        if (productsResponse && productsResponse.data) {
-          const pData = productsResponse.data;
-          setProducts(Array.isArray(pData) ? pData : (pData.data || pData.products || []));
-        } else {
-          setProducts(mockProducts);
-        }
+    // Busca banners direto do banco/API e formata corretamente
+    api.get('/banners')
+      .then(res => {
+        if (!active) return;
+        const bData = res.data;
+        const rawBanners = Array.isArray(bData) ? bData : (bData.data || bData.banners || []);
 
-        if (bannersResponse && bannersResponse.data) {
-          const bData = bannersResponse.data;
-          setBanners(Array.isArray(bData) ? bData : (bData.data || []));
-        } else {
-          setBanners(mockBanners);
-        }
-      } catch (err) {
-        console.error(err);
-        if (active) {
-          setProducts(mockProducts);
-          setBanners(mockBanners);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
+        const formattedBanners: Banner[] = rawBanners.map((item: any) => ({
+          id: item.id,
+          title: item.title || '',
+          imageDesktopUrl: item.imageDesktopUrl || item.image_desktop_url || item.imageUrl || item.image_url || '',
+          imageMobileUrl: item.imageMobileUrl || item.image_mobile_url || null,
+          targetUrl: item.targetUrl || item.target_url || '#'
+        }));
 
-    loadData();
-    return () => {
-      active = false;
+        setBanners(formattedBanners);
+      })
+      .catch(err => {
+        console.error("Erro ao carregar banners:", err);
+        if (active) setBanners([]);
+      })
+      .finally(() => active && setLoadingBanners(false));
+
+    return () => { 
+      active = false; 
     };
   }, []);
 
@@ -191,12 +159,16 @@ export function App() {
       
       <HomeSection>
         <CarouselContainer>
-          {loading ? (
+          {loadingBanners ? (
             <div style={{ height: '450px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <LoadingText>Carregando destaques da Karranka...</LoadingText>
             </div>
+          ) : banners.length > 0 ? (
+            <HomeCarousel banners={banners} />
           ) : (
-            <HomeCarousel banners={banners.length > 0 ? banners : mockBanners} />
+            <div style={{ height: '450px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <LoadingText>Nenhum banner cadastrado no momento.</LoadingText>
+            </div>
           )}
         </CarouselContainer>
 
@@ -211,10 +183,10 @@ export function App() {
       <ProductsSection>
         <SectionTitle>Nossos Produtos</SectionTitle>
         <ProductsGrid>
-          {loading ? (
-            <LoadingText>Carregando produtos reais...</LoadingText>
-          ) : (
-            (products.length > 0 ? products : mockProducts).map((produto) => {
+          {loadingProducts ? (
+            <LoadingText>Carregando produtos...</LoadingText>
+          ) : products.length > 0 ? (
+            products.map((produto) => {
               const nomeImagem = produto.image_url || produto.imageUrl || '';
               const produtoFormatado: Product = {
                 id: String(produto.id),
@@ -229,6 +201,8 @@ export function App() {
                 <ProductCard key={produtoFormatado.id} product={produtoFormatado} />
               );
             })
+          ) : (
+            <EmptyText>Nenhum produto encontrado no banco de dados.</EmptyText>
           )}
         </ProductsGrid>
       </ProductsSection>

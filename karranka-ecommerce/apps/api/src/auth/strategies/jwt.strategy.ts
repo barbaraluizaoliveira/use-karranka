@@ -23,8 +23,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: JwtPayload) {
-    console.log('>>> JWT STRATEGY EXECUTOU! Payload:', payload);
-
     const userId = Number(payload.sub);
 
     if (isNaN(userId)) {
@@ -33,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, role: true },
+      select: { id: true, email: true, name: true, role: true, cpf: true },
     });
 
     if (!user) {
